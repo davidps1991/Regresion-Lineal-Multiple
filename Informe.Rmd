@@ -1,0 +1,215 @@
+---
+title: "Regresión lineal Multiple"
+author: "Cristian David Pachacama"
+date: "1 de Agosto de 2015"
+output: html_document
+---
+
+### 2.1.- Lectura de archivos
+
+Primero que nada, leemos los archivos ` "poblacion1.xlsx" `, ` "poblacion2.xlsx"` mediante el codigo:
+```{r,echo=FALSE,eval=TRUE}
+library(readxl)
+#dir<-"C:/Users/hp/Git Repositorio R(nube)/Regresion-Lineal-Multiple"
+#setwd(dir)
+```
+
+```{r,echo=TRUE,eval=TRUE}
+pobla1<-read_excel("poblacion1.xlsx",sheet=1,na="")
+pobla2<-read_excel("poblacion2.xlsx",sheet=1,na="")
+```
+Ahora mostramos los data frames:
+```{r,echo=TRUE,eval=TRUE}
+library(DT)
+datatable(pobla1)
+datatable(pobla2)
+```
+Podemos observar que "pobla1" dispone de `r nrow(pobla1)` observaciones de `r ncol(pobla2)` variables. Mientras que "pobla2" posee `r nrow(pobla1)` observaciones de `r ncol(pobla2)` variables.
+
+### 2.2.-Union de archivos
+
+En este item usaremos la funcion  ` merge()` que nos permite unir dos data frames si poseen una columna comun, lo hacemos mediante el siguiente codigo:
+
+```{r,echo=TRUE,eval=TRUE}
+poblacion<-merge(pobla1,pobla2,by="identificador",suffixes=c("",""))
+```
+Y obtenemos la siguiente data:
+
+```{r,echo=FALSE,eval=TRUE}
+datatable(poblacion)
+```
+
+### Diagramas de Cajas e Histogramas
+
+Ahora generamos los diagramas de cajas e histogramas de variables numericas y categoricas respectivamente.
+
+```{r,echo=TRUE,eval=TRUE}
+for(j in 2:dim(poblacion)[2]){
+    if(is.numeric(poblacion[,j])==TRUE){
+      boxplot(poblacion[,j])
+      title(names(poblacion)[j])
+    }else {
+      #if(is.factor(p[,j])==TRUE){
+      barplot(table(poblacion[,j]))
+      title(names(poblacion)[j])
+    }
+}
+```
+
+### 2.3.- Medidas de dispersion
+
+A continuacion calculamos los maximos, minimos, medias, etc. de las variables numericas, y la frecuencia de variables categoricas.
+
+```{r,echo=FALSE,eval=TRUE}
+    Clase<-1:dim(poblacion)[2]
+    Maximo<-1:dim(poblacion)[2]
+    Minimo<-1:dim(poblacion)[2]
+    Media<-1:dim(poblacion)[2]
+    Desviacion<-1:dim(poblacion)[2]
+    Primer_Cuantil<-1:dim(poblacion)[2]
+```
+
+```{r,echo=TRUE,eval=TRUE}
+for(j in 2:dim(poblacion)[2]){
+    if(is.numeric(poblacion[,j])==TRUE){
+      Clase[j] <- class(poblacion[,j])
+      Maximo[j] <- max(poblacion[,j])
+      Minimo[j] <- min(poblacion[,j])
+      Media[j] <- mean(poblacion[,j])
+      Desviacion[j]<-sd(poblacion[,j])
+      Primer_Cuantil[j]<- quantile(poblacion[,j],probs=seq(0,1,0.25),na.rm = FALSE)[2]
+    }else {
+      
+      Clase[j] <- class(poblacion[,j])
+      Maximo[j] <- NA
+      Minimo[j] <- NA
+      Media[j] <- NA
+      Desviacion[j] <- NA
+      Primer_Cuantil[j] <- NA 
+      table(poblacion[,j])/dim(poblacion)[1]
+    }
+}
+```
+
+
+```{r,echo=FALSE,eval=TRUE}
+    dispersion<-data.frame(names(poblacion),Clase,Maximo,Minimo,Media,Desviacion,Primer_Cuantil)
+    datatable(dispersion)
+```
+
+Luego para las variables categoricas, se muestran las frecuencias:
+
+```{r,echo=FALSE,eval=TRUE}
+    table(poblacion[,9])/dim(poblacion)[1]
+    table(poblacion[,10])/dim(poblacion)[1]
+```   
+
+
+### 2.4.- Calculo de la correlacion entre la poblacion y las otras variables
+
+Para calcular la correlacion entre la poblacion y el resto de variables numericas usamos el siguiente codigo:
+
+```{r,echo=TRUE,eval=TRUE}
+    correlacion <- 3:dim(poblacion)[2]
+    correlacion[1] <- NA
+for(i in 2:dim(poblacion)[2]){
+  if(is.numeric(poblacion[,i])==TRUE){
+  correlacion[i] <- cor(poblacion[,2],poblacion[,i])
+  } else {
+    correlacion[i] <- NA
+  }
+}
+```
+
+```{r,echo=FALSE,eval=TRUE}
+  datatable(data.frame(names(poblacion),correlacion))
+```
+
+### 2.5.-Prueba de hipotesis para la diferencia de medias
+
+Se desea conocer si con una confiabilidad de 90% se puede asumir que la media de la variable "poblacion" en el grupo donde serv.bas.compl=SI es distinda a la media del grupo donde serv.bas.compl=NO. Para ello antes de hacer el test (prueba de hipotesis) manipulamos la data "poblacion"
+
+```{r,echo=TRUE,eval=TRUE}
+  #Primero modificamos la data, para transformar a "factor las columnas region y serv.bas..." para poder usar el test t(student)
+  servicios<-factor(poblacion[,"serv.bas.compl"],levels=c("SI","NO"),labels=c("si","no"))
+  region<-factor(poblacion[,"region"],levels=c("A","B"),labels=c("a","b"))
+  poblacion_fac<-data.frame(poblacion[,1:7],region,servicios)
+```
+
+Luego hacemos un grafico de cajas para observar como se comporta la "poblacion" en los dos grupos.
+
+```{r,echo=TRUE,eval=TRUE}
+  plot(poblacion ~ servicios , data = poblacion_fac) 
+```  
+
+Y finalmente realizamos la prueba de hipotesis para la diferencia de medias
+```{r,echo=TRUE,eval=TRUE}
+  prueba<-t.test(poblacion ~ servicios , data = poblacion_fac, conf.level=0.9)
+  prueba
+```
+Como podemos observar el intervalo de confianza para la diferencia de medias es $$ [ `r prueba[["conf.int"]][1]` ; `r prueba[["conf.int"]][2]`  ]  $$
+Como vemos este intervalo posee al cero. Por lo tanto se acepta que la diferencia de medias es igual a cero.
+
+### 2.6.- Regresion Lineal Multiple
+
+Planteamos el modelo de regresion lineal multiple tomando como variable independiente a "poblacion" y como variables explicativas a "pobl.mayor", "menores.18","tasa.crimen" debido a que fueron las variables que presentaron la mayor correlacion con la poblacion. Y se obtuvo lo siguiente:
+```{r,echo=TRUE,eval=TRUE}
+  regre<-lm(poblacion~var.pobl.mayor+menores.18+tasa.crimen,data=poblacion_fac)
+```
+
+$$\hat{`r substring(names(poblacion)[2],1,2)`} = `r regre$coefficients[1]` + `r regre$coefficients[2]`  \hat{`r substring(names(poblacion)[3],1,2)`} +  `r regre$coefficients[3]`  \hat{`r substring(names(poblacion)[4],1,2)`} +  `r regre$coefficients[4]`  \hat{`r substring(names(poblacion)[7],1,2)`}$$
+
+En la siguiente tabla se reumen los resultados mas importantes de la regresion
+
+```{r,echo=TRUE,eval=TRUE}
+  summary(regre)
+```
+
+### 2.7.- Interpretacion del $R^2$
+
+Obtubimos un $R^2=`r summary(regre)[["r.squared"]]`$ , lo que quiere decir que la regresion explica el $`r 100*summary(regre)[["r.squared"]]`%$ de la variabilidad.
+
+### 2.8 Significancia de la Regresion
+
+Para anaizar la significancia de la regresion nos ayudaremos de la tabla ANOVA
+```{r,echo=TRUE,eval=TRUE}
+  summary(aov(regre))
+```
+
+### 2.9 Analisis de Residuos
+
+A continuacion para el analisis de residuos usaremos varios criterios, el primero de ellos es:
+```{r,echo=FALSE,eval=TRUE}
+residuos<-1:40  #almacenamos los residuos en el vector "resid"
+for(i in 1:40){
+  residuos[i]<-summary(regre)[["residuals"]][i]
+}
+```
+#### Grafica poblacion vs residuos
+
+A continuacion se muestra la grafica de dispersion de poblacion vs residuos
+
+```{r,echo=TRUE,eval=TRUE}
+  plot(poblacion[,"poblacion"],residuos)
+```
+
+#### Histograma de residuos
+
+Para poder tratar de observar cierta semejanza a la distribucion normal, hacemos el respectivo histograma
+
+```{r,echo=TRUE,eval=TRUE}
+  hist(residuos)
+```
+
+#### Comparacion con Cuantiles teoricos
+
+Compararemos a los cuantiles de los residuos, con los cuantiles teoricos de la distribucion normal, esto ayudados de la fucion  ` qqnorm() ` 
+```{r,echo=TRUE,eval=TRUE}
+qqnorm(residuos)
+qqline(residuos)
+```
+
+
+
+
+
